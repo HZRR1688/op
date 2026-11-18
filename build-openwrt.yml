@@ -1,0 +1,73 @@
+name: Build OpenWrt x86_64 (5G + QModem + MT7612U)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  OPENWRT_BRANCH: openwrt-23.05
+  FEEDS_FILE: feeds.conf.default
+  CONFIG_FILE: config/x86_64.config
+  BUILD_JOBS: 2          # GitHub runner 2 核 7G 内存，用 2 防 OOM
+  TARGET_DIR: bin/targets/x86/64
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout 仓库配置
+        uses: actions/checkout@v4
+
+      - name: 安装编译依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git build-essential clang flex bison g++ gawk \
+            gcc-multilib g++-multilib gettext libncurses-dev libssl-dev \
+            python3-setuptools rsync unzip zlib1g-dev libglib2.0-dev libtool \
+            cmake ninja-build pkg-config ccache python3-venv file wget zstd
+
+      - name: 拉取 OpenWrt 源码 (${{ env.OPENWRT_BRANCH }})
+        run: |
+          git clone --branch ${{ env.OPENWRT_BRANCH }} --depth 1 \
+            https://github.com/openwrt/openwrt.git openwrt
+          cd openwrt
+
+      - name: 写入 feeds 与配置
+        run: |
+          cp ${{ env.FEEDS_FILE }} openwrt/feeds.conf.default
+          cp ${{ env.CONFIG_FILE }} openwrt/.config
+
+      - name: 更新并安装 feeds（含 QModem）
+        working-directory: openwrt
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: 收敛依赖 (make defconfig)
+        working-directory: openwrt
+        run: make defconfig
+
+      - name: 下载源码包
+        working-directory: openwrt
+        run: make download -j${{ env.BUILD_JOBS }}
+
+      - name: 编译固件
+        working-directory: openwrt
+        run: make -j${{ env.BUILD_JOBS }} V=s
+
+      - name: 列出产物
+        working-directory: openwrt
+        run: ls -lh ${{ env.TARGET_DIR }} || true
+
+      - name: 上传固件到 Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-x86_64-5g-qmodem
+          path: |
+            openwrt/${{ env.TARGET_DIR }}/*.img.gz
+            openwrt/${{ env.TARGET_DIR }}/*.img
+            openwrt/${{ env.TARGET_DIR }}/*.manifest
+          retention-days: 14

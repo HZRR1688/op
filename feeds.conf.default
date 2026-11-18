@@ -1,0 +1,9 @@
+# OpenWrt 23.05 官方 feed（与源码分支一致）
+src-git base https://github.com/openwrt/openwrt.git;openwrt-23.05
+src-git packages https://github.com/openwrt/packages.git;openwrt-23.05
+src-git luci https://github.com/openwrt/luci.git;openwrt-23.05
+src-git routing https://github.com/openwrt/routing.git;openwrt-23.05
+src-git telephony https://github.com/openwrt/telephony.git;openwrt-23.05
+
+# QModem 5G 模组管理插件（FUjr/QModem，main 分支基于 23.05.5 SDK）
+src-git qmodem https://github.com/FUjr/QModem.git;main
